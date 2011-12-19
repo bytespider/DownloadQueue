@@ -5,7 +5,7 @@ function DownloadQueue(options)
     if (options)
     {
         this.maxConnections = options.maxConnections || 4;
-        this.maxConnections = options.downloadDirectory || Ti.Filesystem.tempDirectory;
+        this.downloadDirectory = options.downloadDirectory || Ti.Filesystem.tempDirectory;
     }
 }
 DownloadQueue.prototype.maxConnections = 4;
