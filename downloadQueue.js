@@ -1,11 +1,13 @@
 function DownloadQueue(options)
 {
     this.queue = [];
+    this.httpConnections = 0;
 
     if (options)
     {
         this.maxConnections = options.maxConnections || 4;
         this.downloadDirectory = options.downloadDirectory || Ti.Filesystem.tempDirectory;
+        this.timeout = options.timeout || 30000;
     }
 }
 DownloadQueue.prototype.maxConnections = 4;
@@ -29,29 +31,38 @@ DownloadQueue.prototype.process = function ()
 
     dq.httpConnections = dq.httpConnections || 0;
 
-    var httpConnections = this.httpConnections, queue = this.queue, maxConnections = this.maxConnections, item;
-    while (httpConnections < maxConnections && (item = queue.shift()))
+    var maxConnections = dq.maxConnections, item;
+    while (dq.httpConnections < maxConnections && (item = dq.queue.shift()))
     {
         dq.httpConnections++;
 
-        var filePath = dataDirectory + item.filename;
+        var file = Ti.Filesystem.getFile(dataDirectory + item.filename);
+        item.file = file;
+        
+        
+        Ti.API.log(file.name + " [start]: " + file.size);
+        
         var conenction = Ti.Network.createHTTPClient({
-            file: filePath,
+            timeout: dq.timeout,
+            
             ondatastream: (function (fileDescriptor)
             {
                 return function (event)
                 {
-                    fileDescriptor.filePath = filePath;
+                    Ti.API.log(fileDescriptor.file.name + ": " + fileDescriptor.file.size);
+                    
+                    fileDescriptor.file.write(this.responseData, true);
                     fileDescriptor.progress(event);
                 }
             })(item),
+            
             onload: (function (fileDescriptor)
             {
                 return function (event)
                 {
                     Ti.fireEvent("downloadqueue:complete", fileDescriptor);
                     dq.httpConnections--;
-
+    
                     if (dq.queue.length > 0)
                     {
                         dq.process();
@@ -60,17 +71,20 @@ DownloadQueue.prototype.process = function ()
                     {
                         Ti.fireEvent("downloadqueue:queuecomplete", dq);
                     }
-
+    
                 }
             })(item),
+            
             onerror: function (event)
             {
                 dq.httpConnections--;
-                Ti.API.error("Fail to download");
+                Ti.API.error("Failed to download");
             }
         });
-
+        
         conenction.open("GET", item.url);
+        conenction.setRequestHeader("Range", "bytes " + (file.size + 1) + "-");
+        
         conenction.send();
     }
 };
