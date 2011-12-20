@@ -1,95 +1,73 @@
-function DownloadQueue(options)
-{
-    this.queue = [];
-    this.httpConnections = 0;
+var queue = [], httpConnections = 0;
 
-    if (options)
-    {
-        this.maxConnections = options.maxConnections || 4;
-        this.downloadDirectory = options.downloadDirectory || Ti.Filesystem.tempDirectory;
-        this.timeout = options.timeout || 30000;
-    }
-}
-DownloadQueue.prototype.maxConnections = 4;
-DownloadQueue.prototype.downloadDirectory = Ti.Filesystem.tempDirectory;
-DownloadQueue.prototype.queue = [];
+exports.maxConnections = 4;
+exports.downloadDirectory = Ti.Filesystem.tempDirectory;
+exports.timeout = 30000;
 
-DownloadQueue.prototype.add = function (fileDescriptor)
+exports.add = function (fileDescriptor)
 {
-    this.queue.push(fileDescriptor);
-};
-DownloadQueue.prototype.clear = function ()
-{
-    this.queue = [];
-    Ti.fireEvent("downloadqueue:queuecleared", this);
+    queue.push(fileDescriptor);
 };
 
-DownloadQueue.prototype.process = function ()
+exports.remove = function (index)
 {
-    var dq = this;
-    var dataDirectory = dq.downloadDirectory;
+    queue = queue.splice(index, 1);
+};
 
-    dq.httpConnections = dq.httpConnections || 0;
+exports.clear = function ()
+{
+    queue = [];
+};
 
-    var maxConnections = dq.maxConnections, item;
-    while (dq.httpConnections < maxConnections && (item = dq.queue.shift()))
+exports.process = function ()
+{
+    var item, dq = this;
+    while (httpConnections < dq.maxConnections && (item = queue.shift()))
     {
-        dq.httpConnections++;
-
-        var file = Ti.Filesystem.getFile(dataDirectory + item.filename);
+        httpConnections++;
+        
+        var file = Ti.Filesystem.getFile(dq.downloadDirectory + item.filename);
         item.file = file;
-        
-        
-        Ti.API.log(file.name + " [start]: " + file.size);
         
         var conenction = Ti.Network.createHTTPClient({
             timeout: dq.timeout,
-            
+            file: file,
+
             ondatastream: (function (fileDescriptor)
             {
                 return function (event)
                 {
-                    Ti.API.log(fileDescriptor.file.name + ": " + fileDescriptor.file.size);
-                    
-                    fileDescriptor.file.write(this.responseData, true);
                     fileDescriptor.progress(event);
                 }
             })(item),
-            
+
             onload: (function (fileDescriptor)
             {
                 return function (event)
                 {
                     Ti.fireEvent("downloadqueue:complete", fileDescriptor);
-                    dq.httpConnections--;
-    
+                    httpConnections--;
+
                     if (dq.queue.length > 0)
                     {
                         dq.process();
                     }
-                    else if (dq.httpConnections == 0)
+                    else if (httpConnections == 0)
                     {
                         Ti.fireEvent("downloadqueue:queuecomplete", dq);
                     }
-    
+
                 }
             })(item),
-            
+
             onerror: function (event)
             {
-                dq.httpConnections--;
+                httpConnections--;
                 Ti.API.error("Failed to download");
             }
         });
         
         conenction.open("GET", item.url);
-        conenction.setRequestHeader("Range", "bytes " + (file.size + 1) + "-");
-        
         conenction.send();
     }
-};
-
-exports.createDownloadQueue = function (options)
-{
-    return new DownloadQueue(options);
 };
