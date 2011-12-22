@@ -69,7 +69,7 @@ exports.process = function ()
         item.file = file;
         item.hash = hash;
         
-        var conenction = Ti.Network.createHTTPClient({
+        var connection = Ti.Network.createHTTPClient({
             timeout: dq.timeout,
             //file: file,
 
@@ -154,13 +154,13 @@ exports.process = function ()
             }
         });
         
-        conenction.open("GET", item.url);
+        connection.open("GET", item.url);
         
         if (file.size > 0 && file.size != downloads[hash].completeSize)
         {
-            conenction.setRequestHeader("Range", "bytes=" + file.size + "-");
+            connection.setRequestHeader("Range", "bytes=" + file.size + "-");
         }
         
-        conenction.send();
+        connection.send();
     }
 };
