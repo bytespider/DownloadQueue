@@ -162,7 +162,7 @@ exports.process = function ()
                     fireComplete.call(dq, file_descriptor, event);
                     http_connections--;
 
-                    if (dq.queue.length > 0)
+                    if (queue.length > 0)
                     {
                         dq.process();
                     }
