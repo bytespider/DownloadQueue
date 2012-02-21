@@ -82,6 +82,7 @@ exports.process = function ()
             fireProgress.call(dq, item, {progress: 1});
             fireComplete.call(dq, item, null);
             fireQueueComplete.call(dq, queue.length);
+            http_connections--;
             continue;
         } 
             
